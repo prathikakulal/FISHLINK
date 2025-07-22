@@ -2,14 +2,17 @@
 
 
 
+
+
+
+
+
 import React, { useState } from 'react';
 import { PlusCircle, HelpCircle, Sparkles, Image as ImageIcon } from 'lucide-react';
 
 // --- TypeScript Definitions ---
 interface AddCatchFormProps {
     onCatchAdded: () => void;
-    // For a better user experience, you could pass a toast notification function from the parent dashboard.
-    // Example: setToast: (toast: { message: string; type: 'success' | 'error' }) => void; 
 }
 
 interface PriceSuggestion {
@@ -31,7 +34,7 @@ export const AddCatchForm: React.FC<AddCatchFormProps> = ({ onCatchAdded }) => {
     const [isLoadingDesc, setIsLoadingDesc] = useState(false);
     const [priceSuggestion, setPriceSuggestion] = useState<PriceSuggestion | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [error, setError] = useState<string | null>(null); // State to hold and display form error messages
+    const [error, setError] = useState<string | null>(null);
 
     // --- Image Handler ---
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -39,9 +42,20 @@ export const AddCatchForm: React.FC<AddCatchFormProps> = ({ onCatchAdded }) => {
         if (file) {
             setImage(file);
             setImagePreview(URL.createObjectURL(file));
-            setError(null); // Clear previous errors when a new image is selected
+            setError(null);
         }
     };
+    
+    // --- Common function to get headers ---
+    const getAuthHeaders = () => {
+        const token = localStorage.getItem('token');
+        if (!token) return null;
+        
+        return {
+            'Authorization': `Bearer ${token}`
+        };
+    };
+
 
     // --- AI Function 1: Get Price Suggestion ---
     const handleGetPriceSuggestion = async () => {
@@ -49,13 +63,24 @@ export const AddCatchForm: React.FC<AddCatchFormProps> = ({ onCatchAdded }) => {
             setError('Please enter a fish name first to get a price suggestion.');
             return;
         }
+        
+        const authHeaders = getAuthHeaders();
+        if (!authHeaders) {
+            setError('Authentication error. Please log in again.');
+            return;
+        }
+
         setIsLoadingPrice(true);
         setError(null);
         setPriceSuggestion(null);
         try {
             const response = await fetch('http://localhost:5000/api/ai/suggest-price', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                // FIX: Added Authorization header and Content-Type
+                headers: { 
+                    ...authHeaders,
+                    'Content-Type': 'application/json' 
+                },
                 body: JSON.stringify({ fishName, location, freshness, quantity: parseInt(quantity) || 10 })
             });
             if (!response.ok) {
@@ -80,12 +105,23 @@ export const AddCatchForm: React.FC<AddCatchFormProps> = ({ onCatchAdded }) => {
             setError('Please enter a fish name first to generate a description.');
             return;
         }
+
+        const authHeaders = getAuthHeaders();
+        if (!authHeaders) {
+            setError('Authentication error. Please log in again.');
+            return;
+        }
+
         setIsLoadingDesc(true);
         setError(null);
         try {
             const response = await fetch('http://localhost:5000/api/ai/generate-description', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                 // FIX: Added Authorization header and Content-Type
+                headers: { 
+                    ...authHeaders,
+                    'Content-Type': 'application/json' 
+                },
                 body: JSON.stringify({ fishName })
             });
             if (!response.ok) {
@@ -106,15 +142,15 @@ export const AddCatchForm: React.FC<AddCatchFormProps> = ({ onCatchAdded }) => {
     // --- Form Submission Handler ---
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setError(null); // Clear previous errors on a new submission attempt
+        setError(null);
 
         if (!image) {
             setError("Please upload an image for the catch.");
             return;
         }
 
-        const token = localStorage.getItem('token');
-        if (!token) {
+        const authHeaders = getAuthHeaders();
+        if (!authHeaders) {
             setError('Authentication error. You are not logged in. Please log in again.');
             return;
         }
@@ -131,10 +167,13 @@ export const AddCatchForm: React.FC<AddCatchFormProps> = ({ onCatchAdded }) => {
         formData.append('image', image);
 
         try {
-            const response = await fetch('http://localhost:5000/api/products', {
+            // FIX: Changed API endpoint from '/api/products' to '/api/catches'
+            const response = await fetch('http://localhost:5000/api/catches', {
                 method: 'POST',
+                // FIX: Changed header from 'auth-token' to 'Authorization' with Bearer scheme.
+                // Note: We do NOT set 'Content-Type' here. The browser does it automatically for FormData.
                 headers: {
-                    'auth-token': token
+                    ...authHeaders
                 },
                 body: formData,
             });
@@ -146,7 +185,7 @@ export const AddCatchForm: React.FC<AddCatchFormProps> = ({ onCatchAdded }) => {
 
             console.log('Catch added successfully!');
             
-            // Reset form fields to their initial state
+            // Reset form fields
             setFishName('');
             setQuantity('');
             setPrice('');
@@ -155,12 +194,11 @@ export const AddCatchForm: React.FC<AddCatchFormProps> = ({ onCatchAdded }) => {
             setImage(null);
             setImagePreview(null);
             
-            // Trigger the parent component to refresh its listings
             onCatchAdded();
 
         } catch (error: any) {
             console.error('Error submitting form:', error);
-            setError(error.message); // Display the specific error to the user
+            setError(error.message);
         } finally {
             setIsSubmitting(false);
         }
@@ -170,7 +208,6 @@ export const AddCatchForm: React.FC<AddCatchFormProps> = ({ onCatchAdded }) => {
         <div id="add-catch" className="bg-white p-8 rounded-2xl shadow-lg">
             <h3 className="text-2xl font-bold text-gray-800 mb-6">Add a New Catch</h3>
             
-            {/* Display Form Error Message */}
             {error && (
                 <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded-lg" role="alert">
                     <p className="font-bold">Error</p>
@@ -179,8 +216,8 @@ export const AddCatchForm: React.FC<AddCatchFormProps> = ({ onCatchAdded }) => {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Image Upload Section */}
+                {/* ... The rest of your JSX form remains the same, no changes needed there ... */}
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="md:col-span-2">
                         <label className="block text-sm font-medium text-gray-700 mb-1">Catch Image</label>
                         <div className="mt-1 flex items-center space-x-6">
@@ -199,8 +236,6 @@ export const AddCatchForm: React.FC<AddCatchFormProps> = ({ onCatchAdded }) => {
                             </label>
                         </div>
                     </div>
-
-                    {/* Other Form Fields */}
                     <div>
                         <label htmlFor="fishName" className="block text-sm font-medium text-gray-700 mb-1">Fish Name</label>
                         <input type="text" id="fishName" value={fishName} onChange={e => setFishName(e.target.value)} className="w-full px-4 py-2 rounded-lg bg-gray-100 border-transparent focus:ring-0" placeholder="e.g., Pomfret" required/>
@@ -226,8 +261,7 @@ export const AddCatchForm: React.FC<AddCatchFormProps> = ({ onCatchAdded }) => {
                         </div>
                     </div>
                 </div>
-
-                 <div>
+                <div>
                     <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">Description</label>
                     <div className="relative">
                         <textarea id="description" value={description} onChange={e => setDescription(e.target.value)} rows={3} className="w-full px-4 py-2 rounded-lg bg-gray-100 border-transparent focus:ring-0" placeholder="A short description of your catch..."></textarea>
@@ -236,7 +270,6 @@ export const AddCatchForm: React.FC<AddCatchFormProps> = ({ onCatchAdded }) => {
                         </button>
                     </div>
                 </div>
-
                 <div>
                     <label htmlFor="price" className="block text-sm font-medium text-gray-700 mb-1">Price per kg (₹)</label>
                     <div className="relative">
@@ -251,7 +284,6 @@ export const AddCatchForm: React.FC<AddCatchFormProps> = ({ onCatchAdded }) => {
                         </p>
                     )}
                 </div>
-
                 <div className="flex justify-end">
                     <button  
                         type="submit"  
