@@ -7,7 +7,11 @@ const cors = require('cors');
 const path = require('path');
 // Use dotenv to load environment variables from a .env file
 require('dotenv').config();
-
+const corsOptions = {
+    origin: 'http://localhost:5173', // Your frontend URL
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    allowedHeaders: ['Content-Type', 'Authorization'], // ✅ Allow Authorization header
+};
 // 2. --- ROUTE IMPORTS ---
 // Make sure these paths are correct relative to your server.js file
 const authRoutes = require('./routes/authRoutes');
@@ -20,7 +24,8 @@ const PORT = process.env.PORT || 5000;
 
 // 4. --- MIDDLEWARE ---
 // Enable Cross-Origin Resource Sharing for all routes
-app.use(cors());
+// app.use(cors());
+app.use(cors(corsOptions));
 // Enable the express.json() middleware to parse JSON request bodies
 app.use(express.json());
 

@@ -235,6 +235,7 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 
 // Define the shape of the user object and the context
 interface User {
+    id: string;
     name: string;
     role: 'fisherman' | 'buyer' | 'admin';
 }
@@ -276,6 +277,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }, []);
 
     const login = (userData: User, token: string) => {
+        if (!userData.role) {
+            throw new Error("Login: user role missing");
+        }
         setUser(userData);
         setToken(token);
         localStorage.setItem('fishlink-user', JSON.stringify(userData));
@@ -291,10 +295,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         // For example, in your dashboard: const navigate = useNavigate(); logout(); navigate('/');
     };
 
+    // return (
+    //     <AuthContext.Provider value={{ user, token, loading, login, logout }}>
+    //         {!loading && children}
+    //     </AuthContext.Provider>
+    // );
+
     return (
-        <AuthContext.Provider value={{ user, token, loading, login, logout }}>
-            {!loading && children}
-        </AuthContext.Provider>
+    <AuthContext.Provider value={{ user, token, loading, login, logout }}>
+        {children} {/* <-- Temporarily render children unconditionally */}
+    </AuthContext.Provider>
     );
 };
 

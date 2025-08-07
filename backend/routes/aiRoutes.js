@@ -7,7 +7,8 @@
 const express = require('express');
 const router = express.Router();
 const fetch = require('node-fetch');
-const Product = require('../models/Product'); // Ensure this path is correct
+// const Product = require('../models/Product'); // Ensure this path is correct
+const Catch = require('../models/Catch'); 
 
 // --- ROUTE 1: AI Price Suggestion ---
 router.post('/suggest-price', async (req, res) => {
